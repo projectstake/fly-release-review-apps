@@ -7,30 +7,30 @@ if [ -n "$INPUT_PATH" ]; then
   cd "$INPUT_PATH" || exit
 fi
 
-PR_NUMBER=$(jq -r .number /github/workflow/event.json)
-if [ -z "$PR_NUMBER" ]; then
-  echo "This action only supports pull_request actions."
+TAG_NAME=$(jq -r  .release.tag_name /github/workflow/event.json | tr "." "-")
+if [ -z "$TAG_NAME" ]; then
+  echo "This action only supports release actions."
   exit 1
 fi
 
 REPO_NAME=$(echo $GITHUB_REPOSITORY | tr "/" "-")
 EVENT_TYPE=$(jq -r .action /github/workflow/event.json)
 
-# Default the Fly app name to pr-{number}-{repo_name}
-app="${INPUT_NAME:-pr-$PR_NUMBER-$REPO_NAME}"
+# Default the Fly app name to release-{tag name}-{repo_name}
+app="${INPUT_NAME:-release-$TAG_NAME-$REPO_NAME}"
 region="${INPUT_REGION:-${FLY_REGION:-iad}}"
 org="${INPUT_ORG:-${FLY_ORG:-personal}}"
 image="$INPUT_IMAGE"
 config="${INPUT_CONFIG:-fly.toml}"
 database="${INPUT_DATABASE:-$app}"
 
-if ! echo "$app" | grep "$PR_NUMBER"; then
-  echo "For safety, this action requires the app's name to contain the PR number."
+if ! echo "$app" | grep "$TAG_NAME"; then
+  echo "For safety, this action requires the app's name to contain the tag name."
   exit 1
 fi
 
-# PR was closed - remove the Fly app if one exists and exit.
-if [ "$EVENT_TYPE" = "closed" ]; then
+# release was deleted - remove the Fly app if one exists and exit.
+if [ "$EVENT_TYPE" = "deleted" ]; then
   flyctl apps destroy "$app" -y || true
   exit 0
 fi
